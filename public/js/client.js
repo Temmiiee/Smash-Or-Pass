@@ -125,16 +125,16 @@ class SmashOrPassGame {
 
         this.socket.on('player_joined', (gameState) => {
             this.updateLobby(gameState);
-            this.showNotification(`${gameState.players[gameState.players.length - 1]?.name} joined the room!`, 'info');
+            this.showNotification(`${gameState.players[gameState.players.length - 1]?.name} a rejoint la room!`, 'info');
         });
 
         this.socket.on('player_left', ({ playerName, gameState }) => {
             this.updateLobby(gameState);
-            this.showNotification(`${playerName} left the room`, 'warning');
+            this.showNotification(`${playerName} a quitté la room`, 'warning');
         });
 
-        this.socket.on('image_submitted', ({ playerName, characterName }) => {
-            this.showNotification(`${playerName} submitted ${characterName}!`, 'success');
+        this.socket.on('image_submitted', ({ playerName }) => {
+            this.showNotification(`${playerName} a envoyé une image!`, 'success');
             this.updateSubmissionStatus();
         });
 
@@ -145,11 +145,11 @@ class SmashOrPassGame {
         this.socket.on('game_start', (gameState) => {
             this.showScreen('game');
             this.updateGameScreen(gameState);
-            this.showNotification('🎮 Game starting!', 'success');
+            this.showNotification('🎮 Le jeu commence!', 'success');
         });
 
         this.socket.on('vote_cast', ({ playerName, votesCount, totalPlayers }) => {
-            this.votingStatus.innerHTML = `<p>Vote cast! Waiting for ${totalPlayers - votesCount} more players...</p>`;
+            this.votingStatus.innerHTML = `<p>Vote enregistré! En attente de ${totalPlayers - votesCount} joueur(s) de plus...</p>`;
         });
 
         this.socket.on('vote_results', ({ image, result, votes }) => {
@@ -166,7 +166,7 @@ class SmashOrPassGame {
         });
 
         this.socket.on('disconnect', () => {
-            this.showNotification('Disconnected from server', 'error');
+            this.showNotification('Déconnecté du serveur', 'error');
         });
     }
 
@@ -181,7 +181,7 @@ class SmashOrPassGame {
         const roomId = this.roomIdInput.value.trim() || this.generateRoomId();
 
         if (!playerName) {
-            this.showNotification('Please enter your name!', 'error');
+            this.showNotification('Veuillez entrer votre nom!', 'error');
             return;
         }
 
@@ -192,7 +192,7 @@ class SmashOrPassGame {
     createRoom() {
         const playerName = this.playerNameInput.value.trim();
         if (!playerName) {
-            this.showNotification('Please enter your name!', 'error');
+            this.showNotification('Veuillez entrer votre nom!', 'error');
             return;
         }
 
@@ -240,10 +240,10 @@ class SmashOrPassGame {
         const readyPlayers = gameState.players.filter(p => p.ready).length;
         const totalPlayers = gameState.players.length;
         
-        this.readyStatus.innerHTML = `${readyPlayers}/${totalPlayers} players ready`;
+        this.readyStatus.innerHTML = `${readyPlayers}/${totalPlayers} joueurs prêts`;
         
         if (readyPlayers === totalPlayers && totalPlayers > 1 && gameState.totalImages > 0) {
-            this.readyStatus.innerHTML += ' - Starting game...';
+            this.readyStatus.innerHTML += ' - Démarrage du jeu...';
         }
     }
 
@@ -256,7 +256,7 @@ class SmashOrPassGame {
 
         // Validate file type
         if (!file.type.startsWith('image/')) {
-            this.showNotification('Please select a valid image file!', 'error');
+            this.showNotification('Veuillez sélectionner un fichier image valide!', 'error');
             return;
         }
 
@@ -288,12 +288,12 @@ class SmashOrPassGame {
         const characterName = this.characterNameInput.value.trim();
 
         if (!file) {
-            this.showNotification('Please select an image!', 'error');
+            this.showNotification('Veuillez sélectionner une image!', 'error');
             return;
         }
 
         if (!characterName) {
-            this.showNotification('Please enter a character name!', 'error');
+            this.showNotification('Veuillez entrer un nom de personnage!', 'error');
             this.characterNameInput.focus();
             return;
         }
@@ -323,17 +323,17 @@ class SmashOrPassGame {
                 // Reset form and show success
                 this.resetUploadForm();
                 this.readyBtn.disabled = false;
-                this.showNotification(`Image of ${characterName} uploaded successfully!`, 'success');
+                this.showNotification(`Image de ${characterName} envoyée avec succès!`, 'success');
             } else {
-                this.showNotification('Upload failed!', 'error');
+                this.showNotification('Erreur d\'envoi!', 'error');
             }
         } catch (error) {
-            this.showNotification('Upload error!', 'error');
+            this.showNotification('Erreur d\'envoi!', 'error');
             console.error('Upload error:', error);
         } finally {
             // Re-enable confirm button
             this.confirmUploadBtn.disabled = false;
-            this.confirmUploadBtn.textContent = 'Confirm Upload';
+            this.confirmUploadBtn.textContent = 'Confirmer l\'Envoi';
         }
     }
 
@@ -352,8 +352,8 @@ class SmashOrPassGame {
     setReady() {
         this.socket.emit('player_ready', { roomId: this.currentRoom });
         this.readyBtn.disabled = true;
-        this.readyBtn.textContent = 'Ready! ✅';
-        this.showNotification('You are ready! Waiting for other players...', 'info');
+        this.readyBtn.textContent = 'Prêt! ✅';
+        this.showNotification('Vous êtes prêt! En attente des autres joueurs...', 'info');
     }
 
     startTimer() {
@@ -406,7 +406,8 @@ class SmashOrPassGame {
         this.socket.emit('vote', { roomId: this.currentRoom, vote: voteType });
         this.passBtn.disabled = true;
         this.smashBtn.disabled = true;
-        this.votingStatus.innerHTML = `<p>You voted ${voteType.toUpperCase()}! Waiting for other players...</p>`;
+        const voteText = voteType === 'smash' ? 'SMASH' : 'PASS';
+        this.votingStatus.innerHTML = `<p>Vous avez voté ${voteText}! En attente des autres joueurs...</p>`;
     }
 
     showVoteResults(image, result, votes) {
@@ -428,7 +429,7 @@ class SmashOrPassGame {
         // Show individual player votes (if available)
         this.playerVotes.innerHTML = '';
 
-        this.waitingForNext.innerHTML = '<p>Next image in 3 seconds...</p>';
+        this.waitingForNext.innerHTML = '<p>Prochaine image dans 3 secondes...</p>';
     }
 
     showFinalResults(results, stats) {
@@ -568,7 +569,7 @@ class SmashOrPassGame {
         // Reset game state and return to lobby
         this.showScreen('lobby');
         this.readyBtn.disabled = false;
-        this.readyBtn.textContent = 'I\'m Ready!';
+        this.readyBtn.textContent = 'Je suis Prêt!';
     }
 
     showNotification(message, type = 'info') {

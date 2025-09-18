@@ -257,8 +257,7 @@ io.on('connection', (socket) => {
             room.players.get(socket.id).hasSubmittedImages = true;
             
             io.to(roomId).emit('image_submitted', {
-                playerName: room.players.get(socket.id).name,
-                characterName: characterName
+                playerName: room.players.get(socket.id).name
             });
         }
     });

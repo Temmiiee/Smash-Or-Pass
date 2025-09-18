@@ -11,55 +11,55 @@
         <!-- Welcome Screen -->
         <div id="welcome-screen" class="screen active">
             <h1>🔥 Smash or Pass 🔥</h1>
-            <p>Multiplayer voting game - join a room and vote on images!</p>
+            <p>Jeu de vote multijoueur - rejoignez une room et votez sur des images!</p>
             
             <div class="form-group">
-                <input type="text" id="player-name" placeholder="Enter your name" maxlength="20" required>
+                <input type="text" id="player-name" placeholder="Entrez votre nom" maxlength="20" required>
             </div>
             
             <div class="form-group">
-                <input type="text" id="room-id" placeholder="Enter room ID (or create new)" maxlength="10">
+                <input type="text" id="room-id" placeholder="ID de room (ou créez-en une)" maxlength="10">
             </div>
             
-            <button id="join-room-btn" class="btn btn-primary">Join Room</button>
-            <button id="create-room-btn" class="btn btn-secondary">Create Random Room</button>
+            <button id="join-room-btn" class="btn btn-primary">Rejoindre</button>
+            <button id="create-room-btn" class="btn btn-secondary">Créer une Room Aléatoire</button>
         </div>
 
         <!-- Lobby Screen -->
         <div id="lobby-screen" class="screen">
             <div class="room-header">
                 <h2>Room: <span id="current-room-id"></span></h2>
-                <button id="leave-room-btn" class="btn btn-danger">Leave Room</button>
+                <button id="leave-room-btn" class="btn btn-danger">Quitter la Room</button>
             </div>
 
             <div class="players-section">
-                <h3>Players in Room (<span id="player-count">0</span>)</h3>
+                <h3>Joueurs dans la Room (<span id="player-count">0</span>)</h3>
                 <div id="players-list"></div>
             </div>
 
             <div class="image-submission-section">
-                <h3>Submit Your Images</h3>
+                <h3>Envoyez Vos Images</h3>
                 <div class="upload-form">
                     <input type="file" id="image-upload" accept="image/*" style="display: none;">
                     
                     <!-- Step 1: Choose image -->
                     <div id="image-selection-step" class="upload-step active">
-                        <button id="choose-image-btn" class="btn btn-primary">Choose Image</button>
+                        <button id="choose-image-btn" class="btn btn-primary">Choisir une Image</button>
                     </div>
                     
                     <!-- Step 2: Preview and add title -->
                     <div id="image-preview-step" class="upload-step" style="display: none;">
                         <div class="image-preview-container">
-                            <img id="image-preview" src="" alt="Preview" class="image-preview">
+                            <img id="image-preview" src="" alt="Aperçu" class="image-preview">
                             <div class="preview-overlay">
-                                <button id="change-image-btn" class="btn btn-secondary btn-small">Change Image</button>
+                                <button id="change-image-btn" class="btn btn-secondary btn-small">Changer d'Image</button>
                             </div>
                         </div>
                         <div class="image-title-form">
-                            <input type="text" id="character-name" placeholder="Enter character/thing name" maxlength="30" required>
+                            <input type="text" id="character-name" placeholder="Nom du personnage/objet" maxlength="30" required>
                             <div class="upload-actions">
-                                <button id="cancel-upload-btn" class="btn btn-secondary">Cancel</button>
-                                <button id="confirm-upload-btn" class="btn btn-success">Confirm Upload</button>
+                                <button id="cancel-upload-btn" class="btn btn-secondary">Annuler</button>
+                                <button id="confirm-upload-btn" class="btn btn-success">Confirmer l'Envoi</button>
                             </div>
                         </div>
                     </div>
@@ -68,7 +68,7 @@
             </div>
 
             <div class="ready-section">
-                <button id="ready-btn" class="btn btn-success" disabled>I'm Ready!</button>
+                <button id="ready-btn" class="btn btn-success" disabled>Je suis Prêt!</button>
                 <div id="ready-status"></div>
             </div>
         </div>
@@ -76,7 +76,7 @@
         <!-- Game Screen -->
         <div id="game-screen" class="screen">
             <div class="game-header">
-                <h2>Round <span id="current-round">1</span> of <span id="total-rounds">1</span></h2>
+                <h2>Tour <span id="current-round">1</span> sur <span id="total-rounds">1</span></h2>
                 <div class="timer-display">
                     <span class="timer-label">Temps:</span>
                     <span id="vote-timer" class="timer-value">0.0s</span>
@@ -88,7 +88,7 @@
                 <div id="character-info">
                     <h3 id="character-name-display"></h3>
                 </div>
-                <img id="current-image" src="" alt="Vote on this image">
+                <img id="current-image" src="" alt="Votez sur cette image">
             </div>
 
             <div class="voting-controls">
@@ -102,7 +102,7 @@
         <!-- Results Screen -->
         <div id="results-screen" class="screen">
             <div class="results-header">
-                <h2>Vote Results</h2>
+                <h2>Résultats du Vote</h2>
                 <div id="result-summary"></div>
             </div>
 
@@ -127,12 +127,12 @@
         <!-- Final Results Screen -->
         <div id="final-results-screen" class="screen">
             <div class="final-header">
-                <h1>🎉 Game Complete! 🎉</h1>
+                <h1>🎉 Jeu Terminé! 🎉</h1>
             </div>
 
             <!-- Speed Stats Section -->
             <div id="speed-stats" class="speed-stats-section">
-                <h3>⚡ Speed Statistics</h3>
+                <h3>⚡ Statistiques de Vitesse</h3>
                 
                 <!-- Player Stats -->
                 <div class="stats-category">
@@ -182,8 +182,8 @@
             <div id="final-results-list"></div>
 
             <div class="final-controls">
-                <button id="play-again-btn" class="btn btn-primary">Play Again</button>
-                <button id="leave-game-btn" class="btn btn-secondary">Leave Game</button>
+                <button id="play-again-btn" class="btn btn-primary">Rejouer</button>
+                <button id="leave-game-btn" class="btn btn-secondary">Quitter le Jeu</button>
             </div>
         </div>
     </div>
