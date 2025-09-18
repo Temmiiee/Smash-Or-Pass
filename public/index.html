@@ -92,8 +92,14 @@
             </div>
 
             <div class="voting-controls">
-                <button id="pass-btn" class="btn btn-pass">❌ PASS</button>
-                <button id="smash-btn" class="btn btn-smash">💖 SMASH</button>
+                <div class="vote-selection">
+                    <button id="pass-btn" class="btn btn-pass vote-option">❌ PASS</button>
+                    <button id="smash-btn" class="btn btn-smash vote-option">💖 SMASH</button>
+                </div>
+                <div class="vote-confirmation">
+                    <div id="selected-vote" class="selected-vote"></div>
+                    <button id="confirm-vote-btn" class="btn btn-success" disabled>Valider le Choix</button>
+                </div>
             </div>
 
             <div id="voting-status" class="voting-status"></div>
@@ -121,6 +127,9 @@
 
             <div id="results-controls">
                 <div id="waiting-for-next"></div>
+                <div id="creator-controls" style="display: none;">
+                    <button id="next-image-btn" class="btn btn-primary">Au Suivant ➡️</button>
+                </div>
             </div>
         </div>
 

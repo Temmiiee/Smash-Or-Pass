@@ -44,19 +44,27 @@ class GameRoom {
         this.currentImageIndex = 0;
         this.gameState = 'waiting'; // waiting, submission, ready_check, voting, results, finished
         this.votes = new Map(); // imageIndex -> {playerId: vote}
+        this.confirmedVotes = new Map(); // imageIndex -> {playerId: confirmedVote}
         this.voteTimes = new Map(); // imageIndex -> {playerId: {vote, timestamp, reactionTime}}
         this.voteStartTime = null; // timestamp when voting started for current image
         this.results = [];
         this.playerStats = new Map(); // playerId -> {totalReactionTime, voteCount, fastestTime, slowestTime}
         this.imageStats = new Map(); // imageIndex -> {totalReactionTime, voteCount, averageTime, result}
+        this.roomCreator = null; // ID of the room creator
     }
 
     addPlayer(playerId, playerName) {
+        // Le premier joueur devient le créateur
+        if (this.players.size === 0) {
+            this.roomCreator = playerId;
+        }
+        
         this.players.set(playerId, {
             id: playerId,
             name: playerName,
             ready: false,
-            hasSubmittedImages: false
+            hasSubmittedImages: false,
+            isCreator: playerId === this.roomCreator
         });
     }
 
@@ -157,8 +165,29 @@ class GameRoom {
     }
 
     hasAllPlayersVoted() {
-        const votes = this.votes.get(this.currentImageIndex) || new Map();
+        const votes = this.confirmedVotes.get(this.currentImageIndex) || new Map();
         return votes.size === this.players.size;
+    }
+    
+    confirmVote(playerId, imageIndex) {
+        const tempVote = this.votes.get(imageIndex)?.get(playerId);
+        if (!tempVote) return false;
+        
+        if (!this.confirmedVotes.has(imageIndex)) {
+            this.confirmedVotes.set(imageIndex, new Map());
+        }
+        
+        this.confirmedVotes.get(imageIndex).set(playerId, tempVote);
+        return true;
+    }
+    
+    getConfirmedVotesForCurrentImage() {
+        const votes = this.confirmedVotes.get(this.currentImageIndex) || new Map();
+        return {
+            smash: Array.from(votes.values()).filter(vote => vote === 'smash').length,
+            pass: Array.from(votes.values()).filter(vote => vote === 'pass').length,
+            playerVotes: Object.fromEntries(votes)
+        };
     }
 
     generateFinalStats() {
@@ -278,49 +307,74 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('vote', ({ roomId, vote }) => {
+    // Vote temporaire (peut être changé)
+    socket.on('temp_vote', ({ roomId, vote }) => {
         const room = rooms.get(roomId);
         if (room && room.gameState === 'voting') {
             room.addVote(socket.id, room.currentImageIndex, vote);
             
-            if (room.hasAllPlayersVoted()) {
-                const votes = room.getVotesForCurrentImage();
-                const currentImage = room.images[room.currentImageIndex];
-                const result = votes.smash > votes.pass ? 'smashed' : 'passed';
+            // Notifier que le vote temporaire a été enregistré
+            socket.emit('temp_vote_registered', { vote });
+        }
+    });
+    
+    // Confirmation du vote
+    socket.on('confirm_vote', ({ roomId }) => {
+        const room = rooms.get(roomId);
+        if (room && room.gameState === 'voting') {
+            const confirmed = room.confirmVote(socket.id, room.currentImageIndex);
+            
+            if (confirmed) {
+                socket.emit('vote_confirmed');
                 
-                room.results.push({
-                    image: currentImage,
-                    result: result,
-                    votes: votes
-                });
-
-                io.to(roomId).emit('vote_results', {
-                    image: currentImage,
-                    result: result,
-                    votes: votes
-                });
-
-                setTimeout(() => {
-                    room.currentImageIndex++;
-                    if (room.currentImageIndex >= room.images.length) {
-                        room.gameState = 'finished';
-                        const finalStats = room.generateFinalStats();
-                        io.to(roomId).emit('game_finished', {
-                            results: room.results,
-                            gameState: room.getGameState(),
-                            stats: finalStats
-                        });
-                    } else {
-                        room.startVoting(); // Start timing for next image
-                        io.to(roomId).emit('next_image', room.getGameState());
-                    }
-                }, 3000);
-            } else {
-                io.to(roomId).emit('vote_cast', {
-                    playerName: room.players.get(socket.id).name,
-                    votesCount: room.votes.get(room.currentImageIndex).size,
+                // Vérifier si tous les joueurs ont confirmé
+                const confirmedCount = room.confirmedVotes.get(room.currentImageIndex)?.size || 0;
+                io.to(roomId).emit('vote_progress', {
+                    confirmedCount,
                     totalPlayers: room.players.size
                 });
+                
+                // Si tous ont voté et confirmé, passer en mode résultats
+                if (room.hasAllPlayersVoted()) {
+                    room.gameState = 'results';
+                    const votes = room.getConfirmedVotesForCurrentImage();
+                    const currentImage = room.images[room.currentImageIndex];
+                    const result = votes.smash > votes.pass ? 'smashed' : 'passed';
+                    
+                    room.results.push({
+                        image: currentImage,
+                        result: result,
+                        votes: votes
+                    });
+
+                    io.to(roomId).emit('vote_results', {
+                        image: currentImage,
+                        result: result,
+                        votes: votes,
+                        roomCreator: room.roomCreator
+                    });
+                }
+            }
+        }
+    });
+    
+    // Le créateur peut passer à l'image suivante
+    socket.on('next_image', ({ roomId }) => {
+        const room = rooms.get(roomId);
+        if (room && room.gameState === 'results' && socket.id === room.roomCreator) {
+            room.currentImageIndex++;
+            if (room.currentImageIndex >= room.images.length) {
+                room.gameState = 'finished';
+                const finalStats = room.generateFinalStats();
+                io.to(roomId).emit('game_finished', {
+                    results: room.results,
+                    gameState: room.getGameState(),
+                    stats: finalStats
+                });
+            } else {
+                room.gameState = 'voting';
+                room.startVoting(); // Start timing for next image
+                io.to(roomId).emit('next_image_start', room.getGameState());
             }
         }
     });

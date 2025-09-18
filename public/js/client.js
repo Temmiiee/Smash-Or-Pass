@@ -6,6 +6,9 @@ class SmashOrPassGame {
         this.gameState = 'welcome';
         this.timerInterval = null;
         this.voteStartTime = null;
+        this.currentVote = null;
+        this.isCreator = false;
+        this.hasConfirmedVote = false;
         
         this.initializeElements();
         this.bindEvents();
@@ -59,6 +62,10 @@ class SmashOrPassGame {
         this.currentImage = document.getElementById('current-image');
         this.passBtn = document.getElementById('pass-btn');
         this.smashBtn = document.getElementById('smash-btn');
+        this.confirmVoteBtn = document.getElementById('confirm-vote-btn');
+        this.selectedVoteDiv = document.getElementById('selected-vote');
+        this.nextImageBtn = document.getElementById('next-image-btn');
+        this.creatorControls = document.getElementById('creator-controls');
         this.votingStatus = document.getElementById('voting-status');
 
         // Results screen elements
@@ -108,8 +115,10 @@ class SmashOrPassGame {
         this.readyBtn.addEventListener('click', () => this.setReady());
 
         // Game screen events
-        this.passBtn.addEventListener('click', () => this.vote('pass'));
-        this.smashBtn.addEventListener('click', () => this.vote('smash'));
+        this.passBtn.addEventListener('click', () => this.selectVote('pass'));
+        this.smashBtn.addEventListener('click', () => this.selectVote('smash'));
+        if (this.confirmVoteBtn) this.confirmVoteBtn.addEventListener('click', () => this.confirmVote());
+        if (this.nextImageBtn) this.nextImageBtn.addEventListener('click', () => this.nextImage());
 
         // Final results events
         this.playAgainBtn.addEventListener('click', () => this.playAgain());
@@ -119,6 +128,11 @@ class SmashOrPassGame {
     setupSocketListeners() {
         this.socket.on('joined_room', (gameState) => {
             this.currentRoom = gameState.roomId;
+            
+            // Vérifier si ce joueur est le créateur
+            const currentPlayer = gameState.players.find(p => p.name === this.playerName);
+            this.isCreator = currentPlayer ? currentPlayer.isCreator : false;
+            
             this.showScreen('lobby');
             this.updateLobby(gameState);
         });
@@ -152,13 +166,29 @@ class SmashOrPassGame {
             this.votingStatus.innerHTML = `<p>Vote enregistré! En attente de ${totalPlayers - votesCount} joueur(s) de plus...</p>`;
         });
 
-        this.socket.on('vote_results', ({ image, result, votes }) => {
-            this.showVoteResults(image, result, votes);
+        this.socket.on('vote_results', ({ image, result, votes, roomCreator }) => {
+            this.showVoteResults(image, result, votes, roomCreator);
         });
 
-        this.socket.on('next_image', (gameState) => {
+        this.socket.on('next_image_start', (gameState) => {
             this.showScreen('game');
             this.updateGameScreen(gameState);
+        });
+        
+        this.socket.on('temp_vote_registered', ({ vote }) => {
+            this.currentVote = vote;
+            this.updateVoteDisplay();
+        });
+        
+        this.socket.on('vote_confirmed', () => {
+            this.hasConfirmedVote = true;
+            this.confirmVoteBtn.disabled = true;
+            this.confirmVoteBtn.textContent = 'Vote Confirmé ✅';
+            this.showNotification('Vote confirmé!', 'success');
+        });
+        
+        this.socket.on('vote_progress', ({ confirmedCount, totalPlayers }) => {
+            this.votingStatus.innerHTML = `<p>${confirmedCount}/${totalPlayers} joueurs ont confirmé leur vote</p>`;
         });
 
         this.socket.on('game_finished', ({ results, gameState, stats }) => {
@@ -391,23 +421,68 @@ class SmashOrPassGame {
             this.currentImage.style.display = 'block';
         }
 
+        // Reset vote state
+        this.currentVote = null;
+        this.hasConfirmedVote = false;
         this.passBtn.disabled = false;
         this.smashBtn.disabled = false;
+        this.passBtn.classList.remove('selected');
+        this.smashBtn.classList.remove('selected');
+        
+        if (this.confirmVoteBtn) {
+            this.confirmVoteBtn.disabled = true;
+            this.confirmVoteBtn.textContent = 'Valider le Choix';
+        }
+        
+        if (this.selectedVoteDiv) {
+            this.selectedVoteDiv.innerHTML = 'Sélectionnez votre choix puis validez';
+        }
+        
         this.votingStatus.innerHTML = '';
         
         // Start the timer for this image
         this.startTimer();
     }
 
-    vote(voteType) {
-        // Stop the timer when vote is cast
+    selectVote(voteType) {
+        this.currentVote = voteType;
+        this.socket.emit('temp_vote', { roomId: this.currentRoom, vote: voteType });
+    }
+    
+    updateVoteDisplay() {
+        // Reset button states
+        this.passBtn.classList.remove('selected');
+        this.smashBtn.classList.remove('selected');
+        
+        // Highlight selected vote
+        if (this.currentVote === 'pass') {
+            this.passBtn.classList.add('selected');
+            this.selectedVoteDiv.innerHTML = '❌ Vous avez sélectionné: <strong>PASS</strong>';
+        } else if (this.currentVote === 'smash') {
+            this.smashBtn.classList.add('selected');
+            this.selectedVoteDiv.innerHTML = '💖 Vous avez sélectionné: <strong>SMASH</strong>';
+        }
+        
+        // Enable confirm button
+        if (this.confirmVoteBtn) {
+            this.confirmVoteBtn.disabled = false;
+            this.confirmVoteBtn.textContent = 'Valider le Choix';
+        }
+    }
+    
+    confirmVote() {
+        if (!this.currentVote) return;
+        
+        // Stop the timer when vote is confirmed
         this.stopTimer();
         
-        this.socket.emit('vote', { roomId: this.currentRoom, vote: voteType });
-        this.passBtn.disabled = true;
-        this.smashBtn.disabled = true;
-        const voteText = voteType === 'smash' ? 'SMASH' : 'PASS';
-        this.votingStatus.innerHTML = `<p>Vous avez voté ${voteText}! En attente des autres joueurs...</p>`;
+        this.socket.emit('confirm_vote', { roomId: this.currentRoom });
+    }
+    
+    nextImage() {
+        if (this.isCreator) {
+            this.socket.emit('next_image', { roomId: this.currentRoom });
+        }
     }
 
     showVoteResults(image, result, votes) {
@@ -429,7 +504,18 @@ class SmashOrPassGame {
         // Show individual player votes (if available)
         this.playerVotes.innerHTML = '';
 
-        this.waitingForNext.innerHTML = '<p>Prochaine image dans 3 secondes...</p>';
+        // Affichage différent selon si le joueur est créateur ou non
+        if (this.isCreator) {
+            this.waitingForNext.innerHTML = '<p>Vous êtes le créateur - Cliquez sur "Au Suivant" pour continuer</p>';
+            if (this.creatorControls) {
+                this.creatorControls.style.display = 'block';
+            }
+        } else {
+            this.waitingForNext.innerHTML = '<p>En attente que le créateur passe à l\'image suivante...</p>';
+            if (this.creatorControls) {
+                this.creatorControls.style.display = 'none';
+            }
+        }
     }
 
     showFinalResults(results, stats) {
