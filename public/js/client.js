@@ -27,6 +27,7 @@ class SmashOrPassGame {
         this.roomIdInput = document.getElementById('room-id');
         this.joinRoomBtn = document.getElementById('join-room-btn');
         this.createRoomBtn = document.getElementById('create-room-btn');
+        
 
         // Lobby screen elements
         this.currentRoomIdSpan = document.getElementById('current-room-id');
@@ -79,8 +80,14 @@ class SmashOrPassGame {
 
     bindEvents() {
         // Welcome screen events
-        if (this.joinRoomBtn) this.joinRoomBtn.addEventListener('click', () => this.joinRoom());
-        if (this.createRoomBtn) this.createRoomBtn.addEventListener('click', () => this.createRoom());
+        if (this.joinRoomBtn) {
+            this.joinRoomBtn.addEventListener('click', () => this.joinRoom());
+        }
+        
+        if (this.createRoomBtn) {
+            this.createRoomBtn.addEventListener('click', () => this.createRoom());
+        }
+        
         if (this.playerNameInput) this.playerNameInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') this.joinRoom();
         });
@@ -555,6 +562,7 @@ class SmashOrPassGame {
         } else {
             characterStatsDiv.innerHTML = '<p><em>Pas de statistiques de personnages disponibles</em></p>';
         }
+    }
 
     playAgain() {
         // Reset game state and return to lobby
