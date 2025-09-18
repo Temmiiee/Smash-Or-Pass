@@ -41,8 +41,28 @@
                 <h3>Submit Your Images</h3>
                 <div class="upload-form">
                     <input type="file" id="image-upload" accept="image/*" style="display: none;">
-                    <input type="text" id="character-name" placeholder="Character/thing name" maxlength="30">
-                    <button id="upload-btn" class="btn btn-primary">Choose & Upload Image</button>
+                    
+                    <!-- Step 1: Choose image -->
+                    <div id="image-selection-step" class="upload-step active">
+                        <button id="choose-image-btn" class="btn btn-primary">Choose Image</button>
+                    </div>
+                    
+                    <!-- Step 2: Preview and add title -->
+                    <div id="image-preview-step" class="upload-step" style="display: none;">
+                        <div class="image-preview-container">
+                            <img id="image-preview" src="" alt="Preview" class="image-preview">
+                            <div class="preview-overlay">
+                                <button id="change-image-btn" class="btn btn-secondary btn-small">Change Image</button>
+                            </div>
+                        </div>
+                        <div class="image-title-form">
+                            <input type="text" id="character-name" placeholder="Enter character/thing name" maxlength="30" required>
+                            <div class="upload-actions">
+                                <button id="cancel-upload-btn" class="btn btn-secondary">Cancel</button>
+                                <button id="confirm-upload-btn" class="btn btn-success">Confirm Upload</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <div id="submission-status"></div>
             </div>
@@ -57,6 +77,10 @@
         <div id="game-screen" class="screen">
             <div class="game-header">
                 <h2>Round <span id="current-round">1</span> of <span id="total-rounds">1</span></h2>
+                <div class="timer-display">
+                    <span class="timer-label">Temps:</span>
+                    <span id="vote-timer" class="timer-value">0.0s</span>
+                </div>
                 <div id="game-status"></div>
             </div>
 
@@ -104,6 +128,55 @@
         <div id="final-results-screen" class="screen">
             <div class="final-header">
                 <h1>🎉 Game Complete! 🎉</h1>
+            </div>
+
+            <!-- Speed Stats Section -->
+            <div id="speed-stats" class="speed-stats-section">
+                <h3>⚡ Speed Statistics</h3>
+                
+                <!-- Player Stats -->
+                <div class="stats-category">
+                    <h4>💹 Joueurs</h4>
+                    <div class="stats-grid">
+                        <div class="stat-card fastest">
+                            <div class="stat-icon">🏆</div>
+                            <div class="stat-content">
+                                <h5>Le Plus Rapide</h5>
+                                <div id="fastest-player">-</div>
+                            </div>
+                        </div>
+                        <div class="stat-card slowest">
+                            <div class="stat-icon">🐌</div>
+                            <div class="stat-content">
+                                <h5>Le Plus Lent</h5>
+                                <div id="slowest-player">-</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="detailed-stats" class="detailed-stats"></div>
+                </div>
+                
+                <!-- Image Stats -->
+                <div class="stats-category">
+                    <h4>🖼️ Personnages</h4>
+                    <div class="stats-grid">
+                        <div class="stat-card fastest-decision">
+                            <div class="stat-icon">⚡</div>
+                            <div class="stat-content">
+                                <h5>Décision la Plus Rapide</h5>
+                                <div id="fastest-decision">-</div>
+                            </div>
+                        </div>
+                        <div class="stat-card slowest-decision">
+                            <div class="stat-icon">🤔</div>
+                            <div class="stat-content">
+                                <h5>Décision la Plus Lente</h5>
+                                <div id="slowest-decision">-</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="character-stats" class="detailed-stats"></div>
+                </div>
             </div>
 
             <div id="final-results-list"></div>

@@ -1,16 +1,20 @@
 {
   "name": "smash-or-pass-game",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "A fun multiplayer web-based Smash or Pass voting game with real-time features",
+  "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": ["game", "multiplayer", "socket.io", "voting", "web-app"],
+  "author": "Matthéo",
   "license": "ISC",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^5.1.0",

@@ -4,6 +4,8 @@ class SmashOrPassGame {
         this.currentRoom = null;
         this.playerName = '';
         this.gameState = 'welcome';
+        this.timerInterval = null;
+        this.voteStartTime = null;
         
         this.initializeElements();
         this.bindEvents();
@@ -33,7 +35,16 @@ class SmashOrPassGame {
         this.playerCountSpan = document.getElementById('player-count');
         this.imageUpload = document.getElementById('image-upload');
         this.characterNameInput = document.getElementById('character-name');
-        this.uploadBtn = document.getElementById('upload-btn');
+        
+        // New upload UI elements
+        this.imageSelectionStep = document.getElementById('image-selection-step');
+        this.imagePreviewStep = document.getElementById('image-preview-step');
+        this.chooseImageBtn = document.getElementById('choose-image-btn');
+        this.imagePreview = document.getElementById('image-preview');
+        this.changeImageBtn = document.getElementById('change-image-btn');
+        this.cancelUploadBtn = document.getElementById('cancel-upload-btn');
+        this.confirmUploadBtn = document.getElementById('confirm-upload-btn');
+        
         this.submissionStatus = document.getElementById('submission-status');
         this.readyBtn = document.getElementById('ready-btn');
         this.readyStatus = document.getElementById('ready-status');
@@ -41,6 +52,7 @@ class SmashOrPassGame {
         // Game screen elements
         this.currentRoundSpan = document.getElementById('current-round');
         this.totalRoundsSpan = document.getElementById('total-rounds');
+        this.voteTimer = document.getElementById('vote-timer');
         this.gameStatus = document.getElementById('game-status');
         this.characterNameDisplay = document.getElementById('character-name-display');
         this.currentImage = document.getElementById('current-image');
@@ -67,19 +79,25 @@ class SmashOrPassGame {
 
     bindEvents() {
         // Welcome screen events
-        this.joinRoomBtn.addEventListener('click', () => this.joinRoom());
-        this.createRoomBtn.addEventListener('click', () => this.createRoom());
-        this.playerNameInput.addEventListener('keypress', (e) => {
+        if (this.joinRoomBtn) this.joinRoomBtn.addEventListener('click', () => this.joinRoom());
+        if (this.createRoomBtn) this.createRoomBtn.addEventListener('click', () => this.createRoom());
+        if (this.playerNameInput) this.playerNameInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') this.joinRoom();
         });
-        this.roomIdInput.addEventListener('keypress', (e) => {
+        if (this.roomIdInput) this.roomIdInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') this.joinRoom();
         });
 
         // Lobby screen events
         this.leaveRoomBtn.addEventListener('click', () => this.leaveRoom());
-        this.uploadBtn.addEventListener('click', () => this.imageUpload.click());
-        this.imageUpload.addEventListener('change', () => this.handleImageUpload());
+        
+        // New upload UI events
+        this.chooseImageBtn.addEventListener('click', () => this.imageUpload.click());
+        this.changeImageBtn.addEventListener('click', () => this.imageUpload.click());
+        this.imageUpload.addEventListener('change', (e) => this.handleImageSelection(e));
+        this.cancelUploadBtn.addEventListener('click', () => this.cancelUpload());
+        this.confirmUploadBtn.addEventListener('click', () => this.confirmUpload());
+        
         this.readyBtn.addEventListener('click', () => this.setReady());
 
         // Game screen events
@@ -136,8 +154,8 @@ class SmashOrPassGame {
             this.updateGameScreen(gameState);
         });
 
-        this.socket.on('game_finished', ({ results, gameState }) => {
-            this.showFinalResults(results);
+        this.socket.on('game_finished', ({ results, gameState, stats }) => {
+            this.showFinalResults(results, stats);
         });
 
         this.socket.on('disconnect', () => {
@@ -193,7 +211,7 @@ class SmashOrPassGame {
     resetForm() {
         this.playerNameInput.value = '';
         this.roomIdInput.value = '';
-        this.characterNameInput.value = '';
+        this.resetUploadForm();
         this.submissionStatus.innerHTML = '';
         this.readyStatus.innerHTML = '';
     }
@@ -222,14 +240,60 @@ class SmashOrPassGame {
         }
     }
 
-    async handleImageUpload() {
+    handleImageSelection(event) {
+        const file = event.target.files[0];
+        
+        if (!file) {
+            return;
+        }
+
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+            this.showNotification('Please select a valid image file!', 'error');
+            return;
+        }
+
+        // Show preview
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            this.imagePreview.src = e.target.result;
+            this.showPreviewStep();
+        };
+        reader.readAsDataURL(file);
+    }
+
+    showPreviewStep() {
+        this.imageSelectionStep.style.display = 'none';
+        this.imagePreviewStep.style.display = 'block';
+        this.characterNameInput.focus();
+    }
+
+    cancelUpload() {
+        this.imageUpload.value = '';
+        this.characterNameInput.value = '';
+        this.imagePreview.src = '';
+        this.imageSelectionStep.style.display = 'block';
+        this.imagePreviewStep.style.display = 'none';
+    }
+
+    async confirmUpload() {
         const file = this.imageUpload.files[0];
         const characterName = this.characterNameInput.value.trim();
 
-        if (!file || !characterName) {
-            this.showNotification('Please select an image and enter a character name!', 'error');
+        if (!file) {
+            this.showNotification('Please select an image!', 'error');
             return;
         }
+
+        if (!characterName) {
+            this.showNotification('Please enter a character name!', 'error');
+            this.characterNameInput.focus();
+            return;
+        }
+
+        // Disable confirm button during upload
+        this.confirmUploadBtn.disabled = true;
+        this.confirmUploadBtn.textContent = 'Uploading...';
 
         const formData = new FormData();
         formData.append('image', file);
@@ -249,8 +313,8 @@ class SmashOrPassGame {
                     characterName: characterName
                 });
 
-                this.characterNameInput.value = '';
-                this.imageUpload.value = '';
+                // Reset form and show success
+                this.resetUploadForm();
                 this.readyBtn.disabled = false;
                 this.showNotification(`Image of ${characterName} uploaded successfully!`, 'success');
             } else {
@@ -259,7 +323,19 @@ class SmashOrPassGame {
         } catch (error) {
             this.showNotification('Upload error!', 'error');
             console.error('Upload error:', error);
+        } finally {
+            // Re-enable confirm button
+            this.confirmUploadBtn.disabled = false;
+            this.confirmUploadBtn.textContent = 'Confirm Upload';
         }
+    }
+
+    resetUploadForm() {
+        if (this.imageUpload) this.imageUpload.value = '';
+        if (this.characterNameInput) this.characterNameInput.value = '';
+        if (this.imagePreview) this.imagePreview.src = '';
+        if (this.imageSelectionStep) this.imageSelectionStep.style.display = 'block';
+        if (this.imagePreviewStep) this.imagePreviewStep.style.display = 'none';
     }
 
     updateSubmissionStatus() {
@@ -271,6 +347,31 @@ class SmashOrPassGame {
         this.readyBtn.disabled = true;
         this.readyBtn.textContent = 'Ready! ✅';
         this.showNotification('You are ready! Waiting for other players...', 'info');
+    }
+
+    startTimer() {
+        this.voteStartTime = Date.now();
+        this.voteTimer.textContent = '0.0s';
+        
+        // Clear existing timer
+        if (this.timerInterval) {
+            clearInterval(this.timerInterval);
+        }
+        
+        // Start new timer
+        this.timerInterval = setInterval(() => {
+            if (this.voteStartTime) {
+                const elapsed = (Date.now() - this.voteStartTime) / 1000;
+                this.voteTimer.textContent = elapsed.toFixed(1) + 's';
+            }
+        }, 100); // Update every 100ms for smooth display
+    }
+
+    stopTimer() {
+        if (this.timerInterval) {
+            clearInterval(this.timerInterval);
+            this.timerInterval = null;
+        }
     }
 
     updateGameScreen(gameState) {
@@ -286,9 +387,15 @@ class SmashOrPassGame {
         this.passBtn.disabled = false;
         this.smashBtn.disabled = false;
         this.votingStatus.innerHTML = '';
+        
+        // Start the timer for this image
+        this.startTimer();
     }
 
     vote(voteType) {
+        // Stop the timer when vote is cast
+        this.stopTimer();
+        
         this.socket.emit('vote', { roomId: this.currentRoom, vote: voteType });
         this.passBtn.disabled = true;
         this.smashBtn.disabled = true;
@@ -317,8 +424,13 @@ class SmashOrPassGame {
         this.waitingForNext.innerHTML = '<p>Next image in 3 seconds...</p>';
     }
 
-    showFinalResults(results) {
+    showFinalResults(results, stats) {
         this.showScreen('finalResults');
+        
+        // Display speed statistics if available
+        if (stats) {
+            this.displaySpeedStats(stats);
+        }
         
         this.finalResultsList.innerHTML = results.map((result, index) => `
             <div class="final-result-item">
@@ -334,6 +446,115 @@ class SmashOrPassGame {
             </div>
         `).join('');
     }
+
+    displaySpeedStats(stats) {
+        const fastestPlayerDiv = document.getElementById('fastest-player');
+        const slowestPlayerDiv = document.getElementById('slowest-player');
+        const detailedStatsDiv = document.getElementById('detailed-stats');
+        
+        // Character stats elements
+        const fastestDecisionDiv = document.getElementById('fastest-decision');
+        const slowestDecisionDiv = document.getElementById('slowest-decision');
+        const characterStatsDiv = document.getElementById('character-stats');
+        
+        // Display fastest and slowest players
+        if (stats.fastestPlayer) {
+            const fastest = stats.fastestPlayer;
+            fastestPlayerDiv.innerHTML = `
+                <strong>${fastest.playerName}</strong><br>
+                <small>Temps moyen: ${(fastest.averageTime / 1000).toFixed(1)}s</small>
+            `;
+        } else {
+            fastestPlayerDiv.innerHTML = '<em>Aucune donnée</em>';
+        }
+        
+        if (stats.slowestPlayer) {
+            const slowest = stats.slowestPlayer;
+            slowestPlayerDiv.innerHTML = `
+                <strong>${slowest.playerName}</strong><br>
+                <small>Temps moyen: ${(slowest.averageTime / 1000).toFixed(1)}s</small>
+            `;
+        } else {
+            slowestPlayerDiv.innerHTML = '<em>Aucune donnée</em>';
+        }
+        
+        // Display detailed stats for all players
+        if (stats.allPlayers && stats.allPlayers.length > 0) {
+            const detailedHTML = `
+                <h4>📊 Classement Détaillé</h4>
+                ${stats.allPlayers.map((player, index) => `
+                    <div class="player-stat">
+                        <span class="player-name">
+                            ${index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`} 
+                            ${player.playerName}
+                        </span>
+                        <span class="player-time">
+                            ${(player.averageTime / 1000).toFixed(1)}s
+                            <small>(${player.totalVotes} votes)</small>
+                        </span>
+                    </div>
+                `).join('')}
+            `;
+            detailedStatsDiv.innerHTML = detailedHTML;
+        } else {
+            detailedStatsDiv.innerHTML = '<p><em>Pas de statistiques disponibles</em></p>';
+        }
+        
+        // Display character/image statistics
+        if (stats.imageStats) {
+            this.displayCharacterStats(stats.imageStats, fastestDecisionDiv, slowestDecisionDiv, characterStatsDiv);
+        }
+    }
+    
+    displayCharacterStats(imageStats, fastestDecisionDiv, slowestDecisionDiv, characterStatsDiv) {
+        // Display fastest decision
+        if (imageStats.fastestDecision) {
+            const fastest = imageStats.fastestDecision;
+            const resultIcon = fastest.result === 'smashed' ? '💖' : '❌';
+            fastestDecisionDiv.innerHTML = `
+                <strong>${fastest.characterName}</strong><br>
+                <small>${resultIcon} ${(fastest.averageTime / 1000).toFixed(1)}s (${fastest.result})</small>
+            `;
+        } else {
+            fastestDecisionDiv.innerHTML = '<em>Aucune donnée</em>';
+        }
+        
+        // Display slowest decision
+        if (imageStats.slowestDecision) {
+            const slowest = imageStats.slowestDecision;
+            const resultIcon = slowest.result === 'smashed' ? '💖' : '❌';
+            slowestDecisionDiv.innerHTML = `
+                <strong>${slowest.characterName}</strong><br>
+                <small>${resultIcon} ${(slowest.averageTime / 1000).toFixed(1)}s (${slowest.result})</small>
+            `;
+        } else {
+            slowestDecisionDiv.innerHTML = '<em>Aucune donnée</em>';
+        }
+        
+        // Display detailed character stats
+        if (imageStats.allImages && imageStats.allImages.length > 0) {
+            const characterHTML = `
+                <h4>📊 Classement des Personnages</h4>
+                ${imageStats.allImages.map((character, index) => {
+                    const resultIcon = character.result === 'smashed' ? '💖' : '❌';
+                    const resultColor = character.result === 'smashed' ? '#e74c3c' : '#95a5a6';
+                    return `
+                        <div class="player-stat">
+                            <span class="player-name">
+                                ${index + 1}. ${character.characterName}
+                            </span>
+                            <span class="player-time">
+                                ${resultIcon} ${(character.averageTime / 1000).toFixed(1)}s
+                                <small style="color: ${resultColor}">(${character.result})</small>
+                            </span>
+                        </div>
+                    `;
+                }).join('')}
+            `;
+            characterStatsDiv.innerHTML = characterHTML;
+        } else {
+            characterStatsDiv.innerHTML = '<p><em>Pas de statistiques de personnages disponibles</em></p>';
+        }
 
     playAgain() {
         // Reset game state and return to lobby

@@ -44,7 +44,11 @@ class GameRoom {
         this.currentImageIndex = 0;
         this.gameState = 'waiting'; // waiting, submission, ready_check, voting, results, finished
         this.votes = new Map(); // imageIndex -> {playerId: vote}
+        this.voteTimes = new Map(); // imageIndex -> {playerId: {vote, timestamp, reactionTime}}
+        this.voteStartTime = null; // timestamp when voting started for current image
         this.results = [];
+        this.playerStats = new Map(); // playerId -> {totalReactionTime, voteCount, fastestTime, slowestTime}
+        this.imageStats = new Map(); // imageIndex -> {totalReactionTime, voteCount, averageTime, result}
     }
 
     addPlayer(playerId, playerName) {
@@ -82,11 +86,65 @@ class GameRoom {
         return Array.from(this.players.values()).every(player => player.ready);
     }
 
+    startVoting() {
+        this.voteStartTime = Date.now();
+    }
+
     addVote(playerId, imageIndex, vote) {
         if (!this.votes.has(imageIndex)) {
             this.votes.set(imageIndex, new Map());
         }
+        if (!this.voteTimes.has(imageIndex)) {
+            this.voteTimes.set(imageIndex, new Map());
+        }
+        
+        const voteTime = Date.now();
+        const reactionTime = this.voteStartTime ? voteTime - this.voteStartTime : 0;
+        
         this.votes.get(imageIndex).set(playerId, vote);
+        this.voteTimes.get(imageIndex).set(playerId, {
+            vote: vote,
+            timestamp: voteTime,
+            reactionTime: reactionTime
+        });
+        
+        // Update player stats
+        this.updatePlayerStats(playerId, reactionTime);
+        
+        // Update image stats
+        this.updateImageStats(imageIndex, reactionTime);
+    }
+
+    updatePlayerStats(playerId, reactionTime) {
+        if (!this.playerStats.has(playerId)) {
+            this.playerStats.set(playerId, {
+                totalReactionTime: 0,
+                voteCount: 0,
+                fastestTime: Infinity,
+                slowestTime: 0
+            });
+        }
+        
+        const stats = this.playerStats.get(playerId);
+        stats.totalReactionTime += reactionTime;
+        stats.voteCount += 1;
+        stats.fastestTime = Math.min(stats.fastestTime, reactionTime);
+        stats.slowestTime = Math.max(stats.slowestTime, reactionTime);
+    }
+
+    updateImageStats(imageIndex, reactionTime) {
+        if (!this.imageStats.has(imageIndex)) {
+            this.imageStats.set(imageIndex, {
+                totalReactionTime: 0,
+                voteCount: 0,
+                averageTime: 0
+            });
+        }
+        
+        const stats = this.imageStats.get(imageIndex);
+        stats.totalReactionTime += reactionTime;
+        stats.voteCount += 1;
+        stats.averageTime = stats.totalReactionTime / stats.voteCount;
     }
 
     getVotesForCurrentImage() {
@@ -103,6 +161,62 @@ class GameRoom {
         return votes.size === this.players.size;
     }
 
+    generateFinalStats() {
+        const playerRankings = [];
+        
+        for (const [playerId, stats] of this.playerStats) {
+            const player = this.players.get(playerId);
+            if (player && stats.voteCount > 0) {
+                const averageTime = stats.totalReactionTime / stats.voteCount;
+                playerRankings.push({
+                    playerId: playerId,
+                    playerName: player.name,
+                    averageTime: averageTime,
+                    fastestTime: stats.fastestTime === Infinity ? 0 : stats.fastestTime,
+                    slowestTime: stats.slowestTime,
+                    totalVotes: stats.voteCount
+                });
+            }
+        }
+        
+        // Sort by average time (fastest first)
+        const fastestRanking = [...playerRankings].sort((a, b) => a.averageTime - b.averageTime);
+        // Sort by average time (slowest first)
+        const slowestRanking = [...playerRankings].sort((a, b) => b.averageTime - a.averageTime);
+        
+        // Generate image stats
+        const imageRankings = [];
+        for (const [imageIndex, stats] of this.imageStats) {
+            const image = this.images[imageIndex];
+            const result = this.results[imageIndex];
+            if (image && stats.voteCount > 0) {
+                imageRankings.push({
+                    imageIndex: imageIndex,
+                    characterName: image.characterName,
+                    imagePath: image.path,
+                    averageTime: stats.averageTime,
+                    voteCount: stats.voteCount,
+                    result: result ? result.result : 'unknown'
+                });
+            }
+        }
+        
+        // Sort by average time (fastest decisions first)
+        const fastestDecisions = [...imageRankings].sort((a, b) => a.averageTime - b.averageTime);
+        const slowestDecisions = [...imageRankings].sort((a, b) => b.averageTime - a.averageTime);
+        
+        return {
+            fastestPlayer: fastestRanking[0] || null,
+            slowestPlayer: slowestRanking[0] || null,
+            allPlayers: fastestRanking,
+            imageStats: {
+                fastestDecision: fastestDecisions[0] || null,
+                slowestDecision: slowestDecisions[0] || null,
+                allImages: fastestDecisions
+            }
+        };
+    }
+
     getGameState() {
         return {
             roomId: this.id,
@@ -111,7 +225,8 @@ class GameRoom {
             currentImageIndex: this.currentImageIndex,
             totalImages: this.images.length,
             currentImage: this.images[this.currentImageIndex] || null,
-            results: this.results
+            results: this.results,
+            voteStartTime: this.voteStartTime
         };
     }
 }
@@ -156,6 +271,7 @@ io.on('connection', (socket) => {
             if (room.areAllPlayersReady() && room.images.length > 0) {
                 room.gameState = 'voting';
                 room.currentImageIndex = 0;
+                room.startVoting(); // Start timing for first image
                 io.to(roomId).emit('game_start', room.getGameState());
             } else {
                 io.to(roomId).emit('player_ready_update', room.getGameState());
@@ -189,11 +305,14 @@ io.on('connection', (socket) => {
                     room.currentImageIndex++;
                     if (room.currentImageIndex >= room.images.length) {
                         room.gameState = 'finished';
+                        const finalStats = room.generateFinalStats();
                         io.to(roomId).emit('game_finished', {
                             results: room.results,
-                            gameState: room.getGameState()
+                            gameState: room.getGameState(),
+                            stats: finalStats
                         });
                     } else {
+                        room.startVoting(); // Start timing for next image
                         io.to(roomId).emit('next_image', room.getGameState());
                     }
                 }, 3000);
