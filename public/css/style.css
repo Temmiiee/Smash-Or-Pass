@@ -315,7 +315,7 @@ input[type="text"]:focus {
     padding: 10px 20px;
     background: linear-gradient(45deg, #3498db, #2980b9);
     border-radius: 25px;
-    display: inline-block;
+    display: none; /* Caché pendant le vote */
     box-shadow: 0 4px 15px rgba(52, 152, 219, 0.3);
 }
 
@@ -585,6 +585,14 @@ input[type="text"]:focus {
 
 .stat-card.slowest-decision {
     border-left: 4px solid #9b59b6;
+}
+
+.stat-card.most-smash {
+    border-left: 4px solid #e91e63;
+}
+
+.stat-card.least-smash {
+    border-left: 4px solid #95a5a6;
 }
 
 .stat-icon {

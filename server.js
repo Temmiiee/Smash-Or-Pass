@@ -129,7 +129,9 @@ class GameRoom {
                 totalReactionTime: 0,
                 voteCount: 0,
                 fastestTime: Infinity,
-                slowestTime: 0
+                slowestTime: 0,
+                smashCount: 0,
+                passCount: 0
             });
         }
         
@@ -138,6 +140,26 @@ class GameRoom {
         stats.voteCount += 1;
         stats.fastestTime = Math.min(stats.fastestTime, reactionTime);
         stats.slowestTime = Math.max(stats.slowestTime, reactionTime);
+    }
+    
+    updatePlayerVoteType(playerId, voteType) {
+        if (!this.playerStats.has(playerId)) {
+            this.playerStats.set(playerId, {
+                totalReactionTime: 0,
+                voteCount: 0,
+                fastestTime: Infinity,
+                slowestTime: 0,
+                smashCount: 0,
+                passCount: 0
+            });
+        }
+        
+        const stats = this.playerStats.get(playerId);
+        if (voteType === 'smash') {
+            stats.smashCount += 1;
+        } else if (voteType === 'pass') {
+            stats.passCount += 1;
+        }
     }
 
     updateImageStats(imageIndex, reactionTime) {
@@ -178,6 +200,10 @@ class GameRoom {
         }
         
         this.confirmedVotes.get(imageIndex).set(playerId, tempVote);
+        
+        // Mettre à jour les statistiques de type de vote
+        this.updatePlayerVoteType(playerId, tempVote);
+        
         return true;
     }
     
@@ -197,13 +223,17 @@ class GameRoom {
             const player = this.players.get(playerId);
             if (player && stats.voteCount > 0) {
                 const averageTime = stats.totalReactionTime / stats.voteCount;
+                const smashRate = stats.voteCount > 0 ? (stats.smashCount / stats.voteCount) * 100 : 0;
                 playerRankings.push({
                     playerId: playerId,
                     playerName: player.name,
                     averageTime: averageTime,
                     fastestTime: stats.fastestTime === Infinity ? 0 : stats.fastestTime,
                     slowestTime: stats.slowestTime,
-                    totalVotes: stats.voteCount
+                    totalVotes: stats.voteCount,
+                    smashCount: stats.smashCount,
+                    passCount: stats.passCount,
+                    smashRate: smashRate
                 });
             }
         }
@@ -212,6 +242,11 @@ class GameRoom {
         const fastestRanking = [...playerRankings].sort((a, b) => a.averageTime - b.averageTime);
         // Sort by average time (slowest first)
         const slowestRanking = [...playerRankings].sort((a, b) => b.averageTime - a.averageTime);
+        
+        // Sort by smash rate (highest first)
+        const mostSmashRanking = [...playerRankings].sort((a, b) => b.smashRate - a.smashRate);
+        // Sort by smash rate (lowest first)
+        const leastSmashRanking = [...playerRankings].sort((a, b) => a.smashRate - b.smashRate);
         
         // Generate image stats
         const imageRankings = [];
@@ -237,6 +272,8 @@ class GameRoom {
         return {
             fastestPlayer: fastestRanking[0] || null,
             slowestPlayer: slowestRanking[0] || null,
+            mostSmashPlayer: mostSmashRanking[0] || null,
+            leastSmashPlayer: leastSmashRanking[0] || null,
             allPlayers: fastestRanking,
             imageStats: {
                 fastestDecision: fastestDecisions[0] || null,
@@ -286,7 +323,8 @@ io.on('connection', (socket) => {
             room.players.get(socket.id).hasSubmittedImages = true;
             
             io.to(roomId).emit('image_submitted', {
-                playerName: room.players.get(socket.id).name
+                playerName: room.players.get(socket.id).name,
+                playerId: socket.id
             });
         }
     });

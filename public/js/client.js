@@ -147,8 +147,11 @@ class SmashOrPassGame {
             this.showNotification(`${playerName} a quitté la room`, 'warning');
         });
 
-        this.socket.on('image_submitted', ({ playerName }) => {
-            this.showNotification(`${playerName} a envoyé une image!`, 'success');
+        this.socket.on('image_submitted', ({ playerName, playerId }) => {
+            // Ne pas afficher de notification si c'est notre propre upload
+            if (playerId !== this.socket.id) {
+                this.showNotification(`${playerName} a envoyé une image!`, 'success');
+            }
             this.updateSubmissionStatus();
         });
 
@@ -544,6 +547,8 @@ class SmashOrPassGame {
     displaySpeedStats(stats) {
         const fastestPlayerDiv = document.getElementById('fastest-player');
         const slowestPlayerDiv = document.getElementById('slowest-player');
+        const mostSmashPlayerDiv = document.getElementById('most-smash-player');
+        const leastSmashPlayerDiv = document.getElementById('least-smash-player');
         const detailedStatsDiv = document.getElementById('detailed-stats');
         
         // Character stats elements
@@ -572,6 +577,27 @@ class SmashOrPassGame {
             slowestPlayerDiv.innerHTML = '<em>Aucune donnée</em>';
         }
         
+        // Display most/least smash players
+        if (stats.mostSmashPlayer) {
+            const mostSmash = stats.mostSmashPlayer;
+            mostSmashPlayerDiv.innerHTML = `
+                <strong>${mostSmash.playerName}</strong><br>
+                <small>${mostSmash.smashRate.toFixed(1)}% SMASH (${mostSmash.smashCount}/${mostSmash.totalVotes})</small>
+            `;
+        } else {
+            mostSmashPlayerDiv.innerHTML = '<em>Aucune donnée</em>';
+        }
+        
+        if (stats.leastSmashPlayer) {
+            const leastSmash = stats.leastSmashPlayer;
+            leastSmashPlayerDiv.innerHTML = `
+                <strong>${leastSmash.playerName}</strong><br>
+                <small>${leastSmash.smashRate.toFixed(1)}% SMASH (${leastSmash.smashCount}/${leastSmash.totalVotes})</small>
+            `;
+        } else {
+            leastSmashPlayerDiv.innerHTML = '<em>Aucune donnée</em>';
+        }
+        
         // Display detailed stats for all players
         if (stats.allPlayers && stats.allPlayers.length > 0) {
             const detailedHTML = `
@@ -584,7 +610,7 @@ class SmashOrPassGame {
                         </span>
                         <span class="player-time">
                             ${(player.averageTime / 1000).toFixed(1)}s
-                            <small>(${player.totalVotes} votes)</small>
+                            <small>(${player.totalVotes} votes - ${player.smashRate.toFixed(1)}% 💖)</small>
                         </span>
                     </div>
                 `).join('')}
