@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smash or Pass - Multiplayer Game</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Welcome Screen -->
+        <div id="welcome-screen" class="screen active">
+            <h1>🔥 Smash or Pass 🔥</h1>
+            <p>Multiplayer voting game - join a room and vote on images!</p>
+            
+            <div class="form-group">
+                <input type="text" id="player-name" placeholder="Enter your name" maxlength="20" required>
+            </div>
+            
+            <div class="form-group">
+                <input type="text" id="room-id" placeholder="Enter room ID (or create new)" maxlength="10">
+            </div>
+            
+            <button id="join-room-btn" class="btn btn-primary">Join Room</button>
+            <button id="create-room-btn" class="btn btn-secondary">Create Random Room</button>
+        </div>
+
+        <!-- Lobby Screen -->
+        <div id="lobby-screen" class="screen">
+            <div class="room-header">
+                <h2>Room: <span id="current-room-id"></span></h2>
+                <button id="leave-room-btn" class="btn btn-danger">Leave Room</button>
+            </div>
+
+            <div class="players-section">
+                <h3>Players in Room (<span id="player-count">0</span>)</h3>
+                <div id="players-list"></div>
+            </div>
+
+            <div class="image-submission-section">
+                <h3>Submit Your Images</h3>
+                <div class="upload-form">
+                    <input type="file" id="image-upload" accept="image/*" style="display: none;">
+                    <input type="text" id="character-name" placeholder="Character/thing name" maxlength="30">
+                    <button id="upload-btn" class="btn btn-primary">Choose & Upload Image</button>
+                </div>
+                <div id="submission-status"></div>
+            </div>
+
+            <div class="ready-section">
+                <button id="ready-btn" class="btn btn-success" disabled>I'm Ready!</button>
+                <div id="ready-status"></div>
+            </div>
+        </div>
+
+        <!-- Game Screen -->
+        <div id="game-screen" class="screen">
+            <div class="game-header">
+                <h2>Round <span id="current-round">1</span> of <span id="total-rounds">1</span></h2>
+                <div id="game-status"></div>
+            </div>
+
+            <div class="image-display">
+                <div id="character-info">
+                    <h3 id="character-name-display"></h3>
+                </div>
+                <img id="current-image" src="" alt="Vote on this image">
+            </div>
+
+            <div class="voting-controls">
+                <button id="pass-btn" class="btn btn-pass">❌ PASS</button>
+                <button id="smash-btn" class="btn btn-smash">💖 SMASH</button>
+            </div>
+
+            <div id="voting-status" class="voting-status"></div>
+        </div>
+
+        <!-- Results Screen -->
+        <div id="results-screen" class="screen">
+            <div class="results-header">
+                <h2>Vote Results</h2>
+                <div id="result-summary"></div>
+            </div>
+
+            <div class="vote-breakdown">
+                <h3 id="result-character"></h3>
+                <div class="result-display">
+                    <div class="result-image-container">
+                        <img id="result-image" src="" alt="Voted image">
+                    </div>
+                    <div class="vote-details">
+                        <div id="vote-counts"></div>
+                        <div id="player-votes"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="results-controls">
+                <div id="waiting-for-next"></div>
+            </div>
+        </div>
+
+        <!-- Final Results Screen -->
+        <div id="final-results-screen" class="screen">
+            <div class="final-header">
+                <h1>🎉 Game Complete! 🎉</h1>
+            </div>
+
+            <div id="final-results-list"></div>
+
+            <div class="final-controls">
+                <button id="play-again-btn" class="btn btn-primary">Play Again</button>
+                <button id="leave-game-btn" class="btn btn-secondary">Leave Game</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notifications -->
+    <div id="notifications"></div>
+
+    <!-- Socket.io -->
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="js/client.js"></script>
+</body>
+</html>
