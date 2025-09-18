@@ -9,6 +9,8 @@ class SmashOrPassGame {
         this.currentVote = null;
         this.isCreator = false;
         this.hasConfirmedVote = false;
+        this.selectedFiles = [];
+        this.userSubmittedImages = [];
         
         this.initializeElements();
         this.bindEvents();
@@ -44,10 +46,11 @@ class SmashOrPassGame {
         this.imageSelectionStep = document.getElementById('image-selection-step');
         this.imagePreviewStep = document.getElementById('image-preview-step');
         this.chooseImageBtn = document.getElementById('choose-image-btn');
-        this.imagePreview = document.getElementById('image-preview');
-        this.changeImageBtn = document.getElementById('change-image-btn');
+        this.changeImagesBtn = document.getElementById('change-images-btn');
+        this.multipleImagesContainer = document.getElementById('multiple-images-container');
         this.cancelUploadBtn = document.getElementById('cancel-upload-btn');
         this.confirmUploadBtn = document.getElementById('confirm-upload-btn');
+        this.userImagesList = document.getElementById('user-images-list');
         
         this.submissionStatus = document.getElementById('submission-status');
         this.readyBtn = document.getElementById('ready-btn');
@@ -107,10 +110,10 @@ class SmashOrPassGame {
         
         // New upload UI events
         this.chooseImageBtn.addEventListener('click', () => this.imageUpload.click());
-        this.changeImageBtn.addEventListener('click', () => this.imageUpload.click());
-        this.imageUpload.addEventListener('change', (e) => this.handleImageSelection(e));
+        if (this.changeImagesBtn) this.changeImagesBtn.addEventListener('click', () => this.imageUpload.click());
+        this.imageUpload.addEventListener('change', (e) => this.handleMultipleImageSelection(e));
         this.cancelUploadBtn.addEventListener('click', () => this.cancelUpload());
-        this.confirmUploadBtn.addEventListener('click', () => this.confirmUpload());
+        this.confirmUploadBtn.addEventListener('click', () => this.confirmMultipleUploads());
         
         this.readyBtn.addEventListener('click', () => this.setReady());
 
@@ -135,6 +138,7 @@ class SmashOrPassGame {
             
             this.showScreen('lobby');
             this.updateLobby(gameState);
+            this.updateUserImagesList();
         });
 
         this.socket.on('player_joined', (gameState) => {
@@ -151,6 +155,9 @@ class SmashOrPassGame {
             // Ne pas afficher de notification si c'est notre propre upload
             if (playerId !== this.socket.id) {
                 this.showNotification(`${playerName} a envoyé une image!`, 'success');
+            } else {
+                // Mettre à jour notre liste d'images si c'est nous
+                this.updateUserImagesList();
             }
             this.updateSubmissionStatus();
         });
@@ -280,32 +287,58 @@ class SmashOrPassGame {
         }
     }
 
-    handleImageSelection(event) {
-        const file = event.target.files[0];
+    handleMultipleImageSelection(event) {
+        const files = Array.from(event.target.files);
         
-        if (!file) {
+        if (files.length === 0) {
             return;
         }
 
-        // Validate file type
-        if (!file.type.startsWith('image/')) {
-            this.showNotification('Veuillez sélectionner un fichier image valide!', 'error');
-            return;
+        // Validate all files
+        for (const file of files) {
+            if (!file.type.startsWith('image/')) {
+                this.showNotification('Veuillez sélectionner uniquement des fichiers image!', 'error');
+                return;
+            }
         }
 
-        // Show preview
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            this.imagePreview.src = e.target.result;
-            this.showPreviewStep();
-        };
-        reader.readAsDataURL(file);
+        this.selectedFiles = files;
+        this.showMultiplePreviewStep();
     }
 
-    showPreviewStep() {
+    showMultiplePreviewStep() {
         this.imageSelectionStep.style.display = 'none';
         this.imagePreviewStep.style.display = 'block';
-        this.characterNameInput.focus();
+        this.generateMultipleImagePreviews();
+    }
+    
+    generateMultipleImagePreviews() {
+        this.multipleImagesContainer.innerHTML = '';
+        
+        this.selectedFiles.forEach((file, index) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const previewDiv = document.createElement('div');
+                previewDiv.className = 'single-image-preview';
+                previewDiv.innerHTML = `
+                    <div class="preview-image-container">
+                        <img src="${e.target.result}" alt="Aperçu ${index + 1}">
+                    </div>
+                    <div class="preview-input-container">
+                        <input type="text" 
+                               id="character-name-${index}" 
+                               placeholder="Nom du personnage/objet" 
+                               maxlength="30" 
+                               required>
+                        <div class="image-info">
+                            <strong>Image ${index + 1}:</strong> ${file.name}
+                        </div>
+                    </div>
+                `;
+                this.multipleImagesContainer.appendChild(previewDiv);
+            };
+            reader.readAsDataURL(file);
+        });
     }
 
     cancelUpload() {
@@ -369,13 +402,106 @@ class SmashOrPassGame {
             this.confirmUploadBtn.textContent = 'Confirmer l\'Envoi';
         }
     }
+    
+    async confirmMultipleUploads() {
+        if (this.selectedFiles.length === 0) {
+            this.showNotification('Veuillez sélectionner des images!', 'error');
+            return;
+        }
+
+        // Collecter tous les noms de personnages
+        const characterNames = [];
+        for (let i = 0; i < this.selectedFiles.length; i++) {
+            const nameInput = document.getElementById(`character-name-${i}`);
+            const name = nameInput ? nameInput.value.trim() : '';
+            
+            if (!name) {
+                this.showNotification(`Veuillez entrer un nom pour l'image ${i + 1}!`, 'error');
+                return;
+            }
+            characterNames.push(name);
+        }
+
+        // Disable confirm button during upload
+        this.confirmUploadBtn.disabled = true;
+        this.confirmUploadBtn.textContent = 'Envoi en cours...';
+
+        let successCount = 0;
+        const totalImages = this.selectedFiles.length;
+
+        for (let i = 0; i < this.selectedFiles.length; i++) {
+            const file = this.selectedFiles[i];
+            const characterName = characterNames[i];
+            
+            const formData = new FormData();
+            formData.append('image', file);
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    this.socket.emit('submit_image', {
+                        roomId: this.currentRoom,
+                        imagePath: result.imagePath,
+                        characterName: characterName
+                    });
+                    
+                    // Ajouter à notre liste locale
+                    this.userSubmittedImages.push({
+                        characterName: characterName,
+                        path: result.imagePath
+                    });
+                    
+                    successCount++;
+                } else {
+                    this.showNotification(`Erreur pour ${characterName}!`, 'error');
+                }
+            } catch (error) {
+                this.showNotification(`Erreur pour ${characterName}!`, 'error');
+            }
+        }
+
+        // Reset form and show success
+        this.resetUploadForm();
+        this.readyBtn.disabled = false;
+        
+        if (successCount === totalImages) {
+            this.showNotification(`${successCount} images envoyées avec succès!`, 'success');
+        } else {
+            this.showNotification(`${successCount}/${totalImages} images envoyées`, 'warning');
+        }
+
+        // Re-enable confirm button
+        this.confirmUploadBtn.disabled = false;
+        this.confirmUploadBtn.textContent = 'Confirmer l\'Envoi de Toutes les Images';
+    }
+    
+    updateUserImagesList() {
+        if (!this.userImagesList) return;
+        
+        if (this.userSubmittedImages.length === 0) {
+            this.userImagesList.innerHTML = '<p class="no-images">Aucune image envoyée pour le moment</p>';
+        } else {
+            this.userImagesList.innerHTML = this.userSubmittedImages.map(image => `
+                <div class="user-image-item">
+                    <span class="image-icon">🖼️</span>
+                    <span>${image.characterName}</span>
+                </div>
+            `).join('');
+        }
+    }
 
     resetUploadForm() {
         if (this.imageUpload) this.imageUpload.value = '';
-        if (this.characterNameInput) this.characterNameInput.value = '';
-        if (this.imagePreview) this.imagePreview.src = '';
+        if (this.multipleImagesContainer) this.multipleImagesContainer.innerHTML = '';
         if (this.imageSelectionStep) this.imageSelectionStep.style.display = 'block';
         if (this.imagePreviewStep) this.imagePreviewStep.style.display = 'none';
+        this.selectedFiles = [];
     }
 
     updateSubmissionStatus() {

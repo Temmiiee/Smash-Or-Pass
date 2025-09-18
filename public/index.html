@@ -39,28 +39,37 @@
 
             <div class="image-submission-section">
                 <h3>Envoyez Vos Images</h3>
+                
+                <!-- Liste des images déjà envoyées -->
+                <div id="submitted-images-list" class="submitted-images-section">
+                    <h4>Vos Images Envoyées:</h4>
+                    <div id="user-images-list" class="user-images-container">
+                        <p class="no-images">Aucune image envoyée pour le moment</p>
+                    </div>
+                </div>
+                
                 <div class="upload-form">
-                    <input type="file" id="image-upload" accept="image/*" style="display: none;">
+                    <input type="file" id="image-upload" accept="image/*" multiple style="display: none;">
                     
-                    <!-- Step 1: Choose image -->
+                    <!-- Step 1: Choose images -->
                     <div id="image-selection-step" class="upload-step active">
-                        <button id="choose-image-btn" class="btn btn-primary">Choisir une Image</button>
+                        <button id="choose-image-btn" class="btn btn-primary">Choisir des Images</button>
                     </div>
                     
-                    <!-- Step 2: Preview and add title -->
+                    <!-- Step 2: Preview and add titles -->
                     <div id="image-preview-step" class="upload-step" style="display: none;">
-                        <div class="image-preview-container">
-                            <img id="image-preview" src="" alt="Aperçu" class="image-preview">
-                            <div class="preview-overlay">
-                                <button id="change-image-btn" class="btn btn-secondary btn-small">Changer d'Image</button>
-                            </div>
+                        <div class="multiple-preview-header">
+                            <h4>Prévisualisation de vos images</h4>
+                            <button id="change-images-btn" class="btn btn-secondary btn-small">Changer les Images</button>
                         </div>
-                        <div class="image-title-form">
-                            <input type="text" id="character-name" placeholder="Nom du personnage/objet" maxlength="30" required>
-                            <div class="upload-actions">
-                                <button id="cancel-upload-btn" class="btn btn-secondary">Annuler</button>
-                                <button id="confirm-upload-btn" class="btn btn-success">Confirmer l'Envoi</button>
-                            </div>
+                        
+                        <div id="multiple-images-container" class="multiple-images-preview">
+                            <!-- Les prévisualisations seront générées ici -->
+                        </div>
+                        
+                        <div class="upload-actions">
+                            <button id="cancel-upload-btn" class="btn btn-secondary">Annuler</button>
+                            <button id="confirm-upload-btn" class="btn btn-success">Confirmer l'Envoi de Toutes les Images</button>
                         </div>
                     </div>
                 </div>

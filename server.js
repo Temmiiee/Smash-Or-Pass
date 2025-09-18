@@ -64,7 +64,8 @@ class GameRoom {
             name: playerName,
             ready: false,
             hasSubmittedImages: false,
-            isCreator: playerId === this.roomCreator
+            isCreator: playerId === this.roomCreator,
+            submittedImages: [] // Liste des images soumises par ce joueur
         });
     }
 
@@ -76,12 +77,22 @@ class GameRoom {
     }
 
     addImage(playerId, imagePath, characterName) {
-        this.images.push({
+        const imageData = {
             id: this.images.length,
             path: imagePath,
             characterName: characterName,
             submittedBy: playerId
-        });
+        };
+        
+        this.images.push(imageData);
+        
+        // Ajouter à la liste du joueur
+        if (this.players.has(playerId)) {
+            this.players.get(playerId).submittedImages.push({
+                characterName: characterName,
+                path: imagePath
+            });
+        }
     }
 
     setPlayerReady(playerId, ready = true) {
@@ -452,9 +463,34 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// Fonction pour nettoyer le dossier uploads
+function cleanUploadsFolder() {
+    const uploadsDir = path.join(__dirname, 'uploads');
+    
+    try {
+        const files = fs.readdirSync(uploadsDir);
+        
+        for (const file of files) {
+            // Garder seulement le fichier .gitkeep
+            if (file !== '.gitkeep') {
+                const filePath = path.join(uploadsDir, file);
+                fs.unlinkSync(filePath);
+                console.log(`Deleted: ${file}`);
+            }
+        }
+        
+        console.log('✅ Uploads folder cleaned successfully');
+    } catch (error) {
+        console.log('⚠️ Could not clean uploads folder:', error.message);
+    }
+}
+
 // Start server
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
     console.log(`Open http://localhost:${PORT} in your browser`);
+    
+    // Nettoyer le dossier uploads au démarrage
+    cleanUploadsFolder();
 });
